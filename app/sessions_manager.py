@@ -96,7 +96,7 @@ class BrowserSessionManager:
         task = await self._repo.get_task(session_key)
         if task is None:
             task = TaskStatusResponse(
-                task_id=session_key,
+                session_id=session_key,
                 status=TaskStatus.RUNNING,
                 steps=[],
                 result=None,

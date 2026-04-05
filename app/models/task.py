@@ -13,7 +13,7 @@ class TaskStatus(str, Enum):
 
 
 class TaskStatusResponse(BaseModel):
-    task_id: str
+    session_id: str
     status: TaskStatus
     steps: list[TaskStep]
     result: Any = None

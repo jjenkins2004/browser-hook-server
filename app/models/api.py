@@ -15,13 +15,13 @@ class FollowUpTaskRequest(BaseModel):
 
 
 class StartTaskResponse(BaseModel):
-    task_id: str
+    session_id: str
 
 
 class BeginTask(BaseModel):
-    task_id: str
+    session_id: str
 
 
 class InteractRequest(BaseModel):
-    task_id: str
+    session_id: str
     message: str

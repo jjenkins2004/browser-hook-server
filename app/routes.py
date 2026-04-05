@@ -28,7 +28,7 @@ async def register_device_token(body: RegisterDeviceTokenRequest) -> None:
 async def task_history() -> list[TaskStatusResponse]:
     tasks = await inMemoryRepo.list_tasks()
     return [
-        task.model_copy(update={"steps": await inMemoryRepo.get_steps(task.task_id)})
+        task.model_copy(update={"steps": await inMemoryRepo.get_steps(task.session_id)})
         for task in tasks
     ]
 
@@ -38,7 +38,7 @@ async def task_history() -> list[TaskStatusResponse]:
     status_code=202,
     summary="Start task stream",
     description=(
-        "Returns an NDJSON stream. The first line contains the task id, "
+        "Returns an NDJSON stream. The first line contains the session id, "
         "followed by step updates and a final completion update."
     ),
 )
@@ -52,7 +52,7 @@ async def start_task(body: StartTaskRequest) -> StreamingResponse:
     summary="Start follow-up task stream",
     description=(
         "Returns an NDJSON stream for an existing session. The first line "
-        "contains the task id, followed by step updates and a final "
+        "contains the session id, followed by step updates and a final "
         "completion update."
     ),
 )

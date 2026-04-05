@@ -40,18 +40,18 @@ class InMemorySessionRepo(SessionRepo):
 
     def _seed_task(
         self,
-        task_id: str,
+        session_id: str,
         status: TaskStatus,
         result: Any,
         steps: list[TaskStep],
     ) -> None:
-        self._tasks_by_session[task_id] = TaskStatusResponse(
-            task_id=task_id,
+        self._tasks_by_session[session_id] = TaskStatusResponse(
+            session_id=session_id,
             status=status,
             steps=steps,
             result=result,
         )
-        self._steps_by_session[task_id] = steps
+        self._steps_by_session[session_id] = steps
 
     def _load_mock_data(self) -> None:
         def _tool(
@@ -279,26 +279,26 @@ class InMemorySessionRepo(SessionRepo):
         )
 
         self._seed_task(
-            task_id="mock-short-001",
+            session_id="mock-short-001",
             status=TaskStatus.COMPLETED,
             result="Short mock task completed.",
             steps=short_steps,
         )
         self._seed_task(
-            task_id="mock-medium-001",
+            session_id="mock-medium-001",
             status=TaskStatus.RUNNING,
             result=None,
             steps=medium_steps,
         )
         self._seed_task(
-            task_id="mock-long-001",
+            session_id="mock-long-001",
             status=TaskStatus.COMPLETED,
             result="Long mock task completed with 26 steps.",
             steps=long_steps,
         )
 
     async def persist_task(self, task: TaskStatusResponse) -> None:
-        self._tasks_by_session[task.task_id] = task
+        self._tasks_by_session[task.session_id] = task
 
     async def get_task(self, session_id: str) -> TaskStatusResponse | None:
         task = self._tasks_by_session.get(session_id)
