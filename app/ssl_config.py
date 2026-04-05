@@ -1,5 +1,6 @@
 import logging
 import os
+import ssl
 
 import certifi
 
@@ -17,3 +18,9 @@ def configure_ca_bundle() -> str:
 
     logger.debug("Configured CA bundle for outbound TLS connections: %s", ca_bundle)
     return ca_bundle
+
+
+def build_ssl_context() -> ssl.SSLContext:
+    """Build an SSL context pinned to certifi's CA bundle."""
+    ca_bundle = configure_ca_bundle()
+    return ssl.create_default_context(cafile=ca_bundle)
