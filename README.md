@@ -1,1 +1,1 @@
-# Wing-man Server
+# Wingman Server
