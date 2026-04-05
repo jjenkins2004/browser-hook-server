@@ -8,6 +8,7 @@ from browser_use import Agent, Browser, ChatBrowserUse
 
 from app.browser_hook.hook_client import BrowserHook
 from app.browser_hook.models import DoneState, TaskStep
+from app.apns_service import activity_pusher
 from app.models.session import ActiveSession
 from app.models.session_event import (
     AgentCancelledEvent,
@@ -255,7 +256,7 @@ class BrowserSessionManager:
             runner_task.cancel()
             await self._persist_cancelled_event(session_id, reason="session_evicted")
             await self._set_task_cancelled(session_id)
-        
+
         await active_session.hook.agent.browser_session.kill()
 
         # Best effort cleanup for non-running sessions too.
@@ -306,6 +307,18 @@ class BrowserSessionManager:
                     session_id=session_id,
                     event=AgentDoneEvent(done=update),
                 )
+            else:
+                continue
+
+            # Push live-activity updates independently of client stream consumption.
+            try:
+                await activity_pusher.publish_session_update(
+                    session_id=session_id,
+                    state=update,
+                )
+            except Exception:
+                # APNS failures should never stop the session runner.
+                pass
 
     def get_session(self, session_id: str) -> BrowserHook | None:
         active_session = self._sessions.get(session_id)

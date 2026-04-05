@@ -2,7 +2,6 @@ from collections.abc import AsyncIterator
 
 from fastapi.responses import StreamingResponse
 
-from app.apns_service import activity_pusher
 from app.browser_hook.models import DoneState, TaskStep
 from app.models.api import BeginTask
 from app.sessions_manager import session_manager
@@ -33,15 +32,6 @@ async def orchestrate_streaming_task(
     async def _ndjson_generator() -> AsyncIterator[str]:
         yield BeginTask(session_id=session_id_value).model_dump_json() + "\n"
         async for update in _step_iterator():
-            # Push live activity updates opportunistically without blocking stream delivery.
-            try:
-                await activity_pusher.publish_session_update(
-                    session_id=session_id_value,
-                    state=update,
-                )
-            except Exception:
-                # APNS failures should not break the task event stream.
-                pass
             yield update.model_dump_json() + "\n"
 
     return StreamingResponse(
