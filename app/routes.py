@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
@@ -7,8 +9,10 @@ from app.models.api import (
     InteractRequest,
     RegisterDeviceTokenRequest,
     StartTaskRequest,
+    TestLiveActivityPushRequest,
     TokenRegisterRequest,
 )
+from app.browser_hook.models import DoneState, TaskStep
 from app.models.session_event import SessionEventLog
 from app.apns_service import activity_pusher
 from app.repo import inMemoryRepo
@@ -94,3 +98,37 @@ async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
 @router.post("/task/interact", status_code=204)
 async def interact_with_task(body: InteractRequest) -> None:
     pass
+
+
+@router.post(
+    "/debug/live-activity/test-push",
+    status_code=204,
+    summary="Test Live Activity push",
+    description=(
+        "Sends a mock step update followed by a mock done update to the "
+        "supplied push token. For development/debugging only."
+    ),
+)
+async def debug_test_live_activity_push(body: TestLiveActivityPushRequest) -> None:
+    from app.browser_hook.models import ToolResult, ToolStatus
+
+    mock_session_id = "debug-test-session"
+    activity_pusher.register_activity_token(mock_session_id, body.push_token)
+
+    mock_step = TaskStep(
+        step=1,
+        memory="Test step from server",
+        tools=[
+            ToolResult(
+                tool="navigate",
+                title="Navigating to example.com",
+                status=ToolStatus.SUCCESS,
+            )
+        ],
+    )
+    await activity_pusher.publish_session_update(mock_session_id, mock_step)
+
+    await asyncio.sleep(5)
+
+    mock_done = DoneState(result="Test task complete", status=ToolStatus.SUCCESS)
+    await activity_pusher.publish_session_update(mock_session_id, mock_done)

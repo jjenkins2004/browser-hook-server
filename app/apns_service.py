@@ -22,7 +22,7 @@ class LiveActivityPusher:
             key=keys.p8_key(),
             key_id="N96AD57HA8",
             team_id="3S6NT5MUQZ",
-            topic="com.yourcompany.yourapp.push-type.liveactivity",  # Must append .push-type.liveactivity
+            topic="tech.themobilebrowser.wingman.push-type.liveactivity",  # Must append .push-type.liveactivity
         )
         self._tokens_by_session: dict[str, str] = {}
         self._in_flight: set[asyncio.Task[None]] = set()

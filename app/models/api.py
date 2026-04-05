@@ -27,6 +27,10 @@ class InteractRequest(BaseModel):
     message: str
 
 
+class TestLiveActivityPushRequest(BaseModel):
+    push_token: str
+
+
 class TokenRegisterRequest(BaseModel):
     session_id: str
     push_token: str
