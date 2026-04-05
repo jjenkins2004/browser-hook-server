@@ -1,10 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from typing import Any
 
-from app.browser_hook.models import TaskStep
 from app.models.api import (
-    BeginTask,
     FollowUpTaskRequest,
     InteractRequest,
     RegisterDeviceTokenRequest,
@@ -16,25 +13,6 @@ from app.utils import build_session_ndjson_stream, start_session_and_yield_steps
 
 router = APIRouter()
 _device_tokens: set[str] = set()
-
-STREAM_RESPONSE_DOC: dict[int | str, dict[str, Any]] = {
-    202: {
-        "description": (
-            "NDJSON stream where the first line is BeginTask and all "
-            "subsequent lines are TaskStep objects."
-        ),
-        "content": {
-            "application/x-ndjson": {
-                "schema": {
-                    "oneOf": [
-                        BeginTask.model_json_schema(),
-                        TaskStep.model_json_schema(),
-                    ]
-                }
-            }
-        },
-    }
-}
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -59,7 +37,6 @@ async def task_history() -> list[TaskStatusResponse]:
     "/task",
     status_code=202,
     summary="Start task stream",
-    responses=STREAM_RESPONSE_DOC,
     description=(
         "Returns an NDJSON stream. The first line is a BeginTask object "
         "with task_id, followed by TaskStep objects for each emitted step."
@@ -74,7 +51,6 @@ async def start_task(body: StartTaskRequest) -> StreamingResponse:
     "/task/follow_up",
     status_code=202,
     summary="Start follow-up task stream",
-    responses=STREAM_RESPONSE_DOC,
     description=(
         "Returns an NDJSON stream for an existing session. The first line is "
         "a BeginTask object with task_id, followed by TaskStep objects for "
