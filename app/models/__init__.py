@@ -8,6 +8,13 @@ from app.models.api import (
 )
 from app.models.db import Tables
 from app.models.session import ActiveSession
+from app.models.session_event import (
+    AgentDoneEvent,
+    AgentStepEvent,
+    SessionEvent,
+    UserEvent,
+    UserPromptEvent,
+)
 from app.models.task import TaskStatus, TaskStatusResponse
 
 __all__ = [
@@ -19,6 +26,11 @@ __all__ = [
     "StartTaskResponse",
     "Tables",
     "ActiveSession",
+    "UserEvent",
+    "UserPromptEvent",
+    "AgentStepEvent",
+    "AgentDoneEvent",
+    "SessionEvent",
     "TaskStatus",
     "TaskStatusResponse",
 ]

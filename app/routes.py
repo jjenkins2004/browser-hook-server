@@ -7,7 +7,7 @@ from app.models.api import (
     RegisterDeviceTokenRequest,
     StartTaskRequest,
 )
-from app.models.task import TaskStatusResponse
+from app.models.session_event import SessionEventLog
 from app.repo import inMemoryRepo
 from app.utils import start_session_and_create_stream
 
@@ -24,13 +24,14 @@ async def register_device_token(body: RegisterDeviceTokenRequest) -> None:
     _device_tokens.add(body.device_token)
 
 
-@router.get("/task_history", response_model=list[TaskStatusResponse])
-async def task_history() -> list[TaskStatusResponse]:
-    tasks = await inMemoryRepo.list_tasks()
-    return [
-        task.model_copy(update={"steps": await inMemoryRepo.get_steps(task.session_id)})
-        for task in tasks
-    ]
+@router.get("/task_history", response_model=list[SessionEventLog])
+async def task_history() -> list[SessionEventLog]:
+    return await inMemoryRepo.get_history()
+
+
+@router.get("/task_history/{session_id}", response_model=SessionEventLog)
+async def task_history_by_session(session_id: str) -> SessionEventLog:
+    return await inMemoryRepo.get_event_log(session_id)
 
 
 @router.post(
