@@ -2,22 +2,16 @@ from postgrest.types import JSON, CountMethod, ReturnMethod
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 from typing import TypeVar, Type, Union, Optional, Any, Sequence
-from enum import Enum
 
 import logging
+
+from app.models.db import Tables
 
 from .client import perform_supabase_operation
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
-
-
-class Tables(str, Enum):
-    BROWSER_SESSION = "browser_session"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 # MARK: Inserting

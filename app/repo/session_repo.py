@@ -1,25 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
-
-from app.browser_hook.step_extractor import TaskStep
-from app.browser_hook.get_tools import ToolResult, ToolStatus
-
-
-class TaskStatus(str, Enum):
-    RUNNING = "Running"
-    COMPLETED = "Completed"
-    FAILED = "Failed"
-
-
-class TaskStatusResponse(BaseModel):
-    task_id: str
-    status: TaskStatus
-    steps: list[TaskStep]
-    result: Any = None
+from app.browser_hook.models import TaskStep, ToolResult, ToolStatus
+from app.models.task import TaskStatus, TaskStatusResponse
 
 
 class SessionRepo(ABC):

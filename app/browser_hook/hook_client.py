@@ -4,7 +4,9 @@ from pydantic import BaseModel
 from browser_use import Agent
 from browser_use.agent.views import AgentHistoryList
 
-from .step_extractor import extract_step, TaskStep
+from app.browser_hook.models import TaskStep
+
+from .step_extractor import extract_step
 
 AgentType = Agent[object, BaseModel]
 AgentHistoryType = AgentHistoryList[BaseModel]
@@ -22,14 +24,14 @@ class BrowserHook:
         self.agent = agent
         self.on_step_callback = on_step_callback
         self.steps: list[TaskStep] = []
-        
+
     async def run(self, max_steps: int = 500) -> AgentHistoryType:
         """Runs the agent and stores extracted TaskStep entries in self.steps."""
 
         async def on_step_end(agent: AgentType) -> None:
             # Extract the step data
             step: TaskStep = extract_step(agent)
-            
+
             self.steps.append(step)
 
             # Execute the callback, passing `self` so the user can control the hook

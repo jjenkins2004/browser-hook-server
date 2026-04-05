@@ -1,8 +1,7 @@
+from app.models.task import TaskStatus, TaskStatusResponse
 from app.repo.session_repo import (
     InMemorySessionRepo,
     SessionRepo,
-    TaskStatus,
-    TaskStatusResponse,
     inMemoryRepo,
 )
 

@@ -6,7 +6,7 @@ from browser_use import Agent, Browser, ChatBrowserUse
 
 from app.config import keys
 from app.browser_hook.hook_client import BrowserHook
-from app.browser_hook.step_extractor import TaskStep
+from app.browser_hook.models import TaskStep
 
 AgentType = Agent[object, BaseModel]
 

@@ -1,21 +1,6 @@
-from enum import Enum
-from typing import Any, Optional
-from pydantic import BaseModel
+from typing import Any
 
-# Assume ActionResult is imported from browser_use.agent.views
-
-
-class ToolStatus(str, Enum):
-    SUCCESS = "success"
-    ERROR = "error"
-    PENDING = "pending"
-
-
-class ToolResult(BaseModel):
-    tool: str
-    title: str
-    description: Optional[str] = None
-    status: ToolStatus
+from app.browser_hook.models import ToolResult, ToolStatus
 
 
 def extract_ui_tools(

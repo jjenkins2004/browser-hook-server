@@ -1,16 +1,11 @@
 from pydantic import BaseModel
 from browser_use import Agent
 from browser_use.agent.views import ActionResult
-from typing import Optional
 
-from app.browser_hook.get_tools import ToolResult, extract_ui_tools
+from app.browser_hook.get_tools import extract_ui_tools
+from app.browser_hook.models import TaskStep
 
 AgentType = Agent[object, BaseModel]
-
-class TaskStep(BaseModel):
-    step: int
-    memory: Optional[str] = None
-    tools: list[ToolResult]
 
 
 def extract_step(agent: AgentType) -> TaskStep:

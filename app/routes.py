@@ -1,29 +1,40 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+from typing import Any
 
-from app.repo import TaskStatusResponse, inMemoryRepo
-from app.sessions_manager import session_manager
+from app.browser_hook.models import TaskStep
+from app.models.api import (
+    BeginTask,
+    FollowUpTaskRequest,
+    InteractRequest,
+    RegisterDeviceTokenRequest,
+    StartTaskRequest,
+)
+from app.models.task import TaskStatusResponse
+from app.repo import inMemoryRepo
+from app.utils import build_session_ndjson_stream, start_session_and_yield_steps
 
 router = APIRouter()
 _device_tokens: set[str] = set()
 
-
-class RegisterDeviceTokenRequest(BaseModel):
-    device_token: str
-
-
-class StartTaskRequest(BaseModel):
-    task: str
-
-
-class StartTaskResponse(BaseModel):
-    task_id: str
-
-
-class InteractRequest(BaseModel):
-    task_id: str
-    message: str
-
+STREAM_RESPONSE_DOC: dict[int | str, dict[str, Any]] = {
+    202: {
+        "description": (
+            "NDJSON stream where the first line is BeginTask and all "
+            "subsequent lines are TaskStep objects."
+        ),
+        "content": {
+            "application/x-ndjson": {
+                "schema": {
+                    "oneOf": [
+                        BeginTask.model_json_schema(),
+                        TaskStep.model_json_schema(),
+                    ]
+                }
+            }
+        },
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -44,18 +55,37 @@ async def task_history() -> list[TaskStatusResponse]:
     ]
 
 
-@router.get("/update/{task_id}", response_model=TaskStatusResponse)
-async def get_task_update(task_id: str) -> TaskStatusResponse:
-    task = await inMemoryRepo.get_task(task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task.model_copy(update={"steps": await inMemoryRepo.get_steps(task.task_id)})
+@router.post(
+    "/task",
+    status_code=202,
+    summary="Start task stream",
+    responses=STREAM_RESPONSE_DOC,
+    description=(
+        "Returns an NDJSON stream. The first line is a BeginTask object "
+        "with task_id, followed by TaskStep objects for each emitted step."
+    ),
+)
+async def start_task(body: StartTaskRequest) -> StreamingResponse:
+    task_id, iterator = await start_session_and_yield_steps(task_prompt=body.task)
+    return build_session_ndjson_stream(task_id=task_id, step_iterator=iterator)
 
 
-@router.post("/task", status_code=202)
-async def start_task(body: StartTaskRequest) -> StartTaskResponse:
-    task_id = await session_manager.create_session(task_prompt=body.task)
-    return StartTaskResponse(task_id=task_id)
+@router.post(
+    "/task/follow_up",
+    status_code=202,
+    summary="Start follow-up task stream",
+    responses=STREAM_RESPONSE_DOC,
+    description=(
+        "Returns an NDJSON stream for an existing session. The first line is "
+        "a BeginTask object with task_id, followed by TaskStep objects for "
+        "each emitted step."
+    ),
+)
+async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
+    task_id, iterator = await start_session_and_yield_steps(
+        task_prompt=body.task, session_id=body.session_id
+    )
+    return build_session_ndjson_stream(task_id=task_id, step_iterator=iterator)
 
 
 @router.post("/task/interact", status_code=204)
