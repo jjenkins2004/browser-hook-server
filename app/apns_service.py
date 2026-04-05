@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 
 from aioapns import APNs, NotificationRequest, PushType
@@ -27,11 +28,27 @@ class LiveActivityPusher:
         self._tokens_by_session: dict[str, str] = {}
         self._in_flight: set[asyncio.Task[None]] = set()
 
+    @staticmethod
+    def _token_fingerprint(token: str) -> str:
+        # Log a short, non-reversible token fingerprint for troubleshooting.
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()[:12]
+
     def register_activity_token(self, session_id: str, push_token: str) -> None:
         self._tokens_by_session[session_id] = push_token
+        self.logger.info(
+            "Registered live activity token for session %s (token_fp=%s)",
+            session_id,
+            self._token_fingerprint(push_token),
+        )
 
     def unregister_activity_token(self, session_id: str) -> None:
-        self._tokens_by_session.pop(session_id, None)
+        token = self._tokens_by_session.pop(session_id, None)
+        if token is not None:
+            self.logger.info(
+                "Unregistered live activity token for session %s (token_fp=%s)",
+                session_id,
+                self._token_fingerprint(token),
+            )
 
     def reset_state(self) -> None:
         for task in list(self._in_flight):
@@ -73,17 +90,42 @@ class LiveActivityPusher:
             priority=10,
         )
 
+        event_name = "end" if is_done else "update"
+        token_fp = self._token_fingerprint(activity_push_token)
+        self.logger.debug(
+            "Sending Live Activity APNS push (session=%s, event=%s, token_fp=%s)",
+            session_id,
+            event_name,
+            token_fp,
+        )
+
         response = await self.apns.send_notification(request)
+        apns_status = getattr(response, "status", None)
+        apns_id = getattr(response, "notification_id", None)
         if response.is_successful:
             self.logger.info(
-                "Live Activity updated successfully for session %s", session_id
+                "Live Activity push succeeded (session=%s, event=%s, token_fp=%s, status=%s, notification_id=%s)",
+                session_id,
+                event_name,
+                token_fp,
+                apns_status,
+                apns_id,
             )
         else:
             self.logger.error(
-                "Failed to update activity for session %s: %s",
+                "Live Activity push failed (session=%s, event=%s, token_fp=%s, status=%s, notification_id=%s, reason=%s)",
                 session_id,
+                event_name,
+                token_fp,
+                apns_status,
+                apns_id,
                 response.description,
             )
+            if response.description == "BadDeviceToken":
+                self.logger.warning(
+                    "BadDeviceToken diagnostic: token likely invalid/stale or environment/topic mismatch. "
+                    "Check iOS-provided live activity token freshness, APNS sandbox vs production, and topic suffix '.push-type.liveactivity'."
+                )
 
     async def publish_session_update(
         self,
@@ -92,6 +134,10 @@ class LiveActivityPusher:
     ) -> None:
         token = self._tokens_by_session.get(session_id)
         if token is None:
+            self.logger.debug(
+                "No live activity token registered for session %s; skipping push",
+                session_id,
+            )
             return
 
         async def _send_update_safely() -> None:
@@ -103,8 +149,9 @@ class LiveActivityPusher:
                 )
             except Exception:
                 self.logger.exception(
-                    "Unexpected error publishing Live Activity update for session %s",
+                    "Unexpected error publishing Live Activity update for session %s (token_fp=%s)",
                     session_id,
+                    self._token_fingerprint(token),
                 )
             finally:
                 if isinstance(state, DoneState):
