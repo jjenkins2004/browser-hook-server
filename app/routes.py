@@ -159,3 +159,17 @@ async def debug_test_live_activity_push(body: TestLiveActivityPushRequest) -> No
 
     mock_done = DoneState(result="Test task complete", status=ToolStatus.SUCCESS)
     await activity_pusher.publish_session_update(mock_session_id, mock_done)
+
+
+@router.post(
+    "/debug/reset-state",
+    status_code=204,
+    summary="Reset in-memory server state",
+    description=(
+        "Clears live-activity state and session manager in-memory state. "
+        "For development/debugging only."
+    ),
+)
+async def debug_reset_state() -> None:
+    activity_pusher.reset_state()
+    await session_manager.reset_state()

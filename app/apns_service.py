@@ -33,6 +33,13 @@ class LiveActivityPusher:
     def unregister_activity_token(self, session_id: str) -> None:
         self._tokens_by_session.pop(session_id, None)
 
+    def reset_state(self) -> None:
+        for task in list(self._in_flight):
+            if not task.done():
+                task.cancel()
+        self._in_flight.clear()
+        self._tokens_by_session.clear()
+
     async def update_activity(
         self,
         activity_push_token: str,
@@ -48,15 +55,16 @@ class LiveActivityPusher:
             done=state if is_done else None,
         )
 
-        payload = {
-            "aps": {
-                "timestamp": int(time.time()),
-                "event": "end" if is_done else "update",
-                "content-state": content_state.model_dump(
-                    mode="json", by_alias=True, exclude_none=True
-                ),
-            }
+        timestamp = int(time.time())
+        aps_payload = {
+            "timestamp": timestamp,
+            "event": "end" if is_done else "update",
+            "content-state": content_state.model_dump(
+                mode="json", by_alias=True, exclude_none=True
+            ),
         }
+
+        payload = {"aps": aps_payload}
 
         request = NotificationRequest(
             device_token=activity_push_token,

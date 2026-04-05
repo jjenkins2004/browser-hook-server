@@ -46,6 +46,21 @@ class BrowserSessionManager:
         self._repo = repo
         self._sessions: dict[str, ActiveSession] = {}
 
+    async def reset_state(self) -> None:
+        # Stop any currently running sessions.
+        for session in list(self._sessions.values()):
+            runner_task = session.runner_task
+            if runner_task is not None and not runner_task.done():
+                session.hook.stop()
+                runner_task.cancel()
+
+        self._sessions.clear()
+
+        # Clear persisted in-memory session logs.
+        history = await self._repo.get_history()
+        for event_log in history:
+            await self._repo.clear_session(event_log.session_id)
+
     async def start_session(
         self,
         task_prompt: str,
