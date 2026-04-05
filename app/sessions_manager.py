@@ -10,7 +10,12 @@ from browser_use import Agent, Browser, ChatBrowserUse
 from app.browser_hook.hook_client import BrowserHook
 from app.browser_hook.step_extractor import TaskStep
 from app.config import keys
-from app.repo.session_repo import SessionRepo, TaskStatusResponse, inMemoryRepo
+from app.repo.session_repo import (
+    SessionRepo,
+    TaskStatus,
+    TaskStatusResponse,
+    inMemoryRepo,
+)
 
 AgentType = Agent[object, BaseModel]
 
@@ -43,7 +48,10 @@ class BrowserSessionManager:
         session_id = str(uuid4())
         await self._repo.persist_task(
             TaskStatusResponse(
-                task_id=session_id, status="running", steps=[], result=None
+                task_id=session_id,
+                status=TaskStatus.RUNNING,
+                steps=[],
+                result=None,
             )
         )
 
@@ -58,13 +66,13 @@ class BrowserSessionManager:
                 history = await hook.run(max_steps=max_steps)
                 task = await self._repo.get_task(session_id)
                 if task is not None:
-                    task.status = "completed"
+                    task.status = TaskStatus.COMPLETED
                     task.result = str(history.final_result())
                     await self._repo.persist_task(task)
             except Exception as exc:
                 task = await self._repo.get_task(session_id)
                 if task is not None:
-                    task.status = "error"
+                    task.status = TaskStatus.FAILED
                     task.result = str(exc)
                     await self._repo.persist_task(task)
             finally:
