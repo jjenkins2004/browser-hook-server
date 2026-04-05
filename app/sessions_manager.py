@@ -255,6 +255,8 @@ class BrowserSessionManager:
             runner_task.cancel()
             await self._persist_cancelled_event(session_id, reason="session_evicted")
             await self._set_task_cancelled(session_id)
+        
+        await active_session.hook.agent.browser_session.kill()
 
         # Best effort cleanup for non-running sessions too.
         try:
