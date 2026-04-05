@@ -18,6 +18,11 @@ class StopTaskRequest(BaseModel):
     session_id: str
 
 
+class EvictSessionRequest(BaseModel):
+    session_id: str
+    clear_history: bool = False
+
+
 class StartTaskResponse(BaseModel):
     session_id: str
 

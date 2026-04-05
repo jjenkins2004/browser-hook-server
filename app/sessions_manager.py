@@ -237,6 +237,36 @@ class BrowserSessionManager:
         await self._persist_cancelled_event(session_id)
         await self._set_task_cancelled(session_id)
 
+    async def evict_session(
+        self,
+        session_id: str,
+        clear_history: bool = False,
+    ) -> None:
+        active_session = self._sessions.get(session_id)
+        if active_session is None:
+            raise SessionNotFoundError(
+                f"Session {session_id!r} is not active in memory. "
+                "It may have expired or never existed."
+            )
+
+        runner_task = active_session.runner_task
+        if runner_task is not None and not runner_task.done():
+            active_session.hook.stop()
+            runner_task.cancel()
+            await self._persist_cancelled_event(session_id, reason="session_evicted")
+            await self._set_task_cancelled(session_id)
+
+        # Best effort cleanup for non-running sessions too.
+        try:
+            active_session.hook.stop()
+        except Exception:
+            pass
+
+        self._sessions.pop(session_id, None)
+
+        if clear_history:
+            await self._repo.clear_session(session_id)
+
     async def _run_session(
         self,
         session_key: str,

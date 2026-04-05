@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
 
 from app.models.api import (
+    EvictSessionRequest,
     FollowUpTaskRequest,
     InteractRequest,
     RegisterDeviceTokenRequest,
@@ -119,6 +120,29 @@ async def stop_task(body: StopTaskRequest) -> None:
         raise HTTPException(
             status_code=409,
             detail=f"Session {body.session_id!r} is not currently running.",
+        )
+
+
+@router.post(
+    "/task/evict",
+    status_code=204,
+    summary="Evict a session from memory",
+    description=(
+        "Removes a session from in-memory runtime state. Optionally clears "
+        "persisted event history for that session."
+    ),
+)
+async def evict_task_session(body: EvictSessionRequest) -> None:
+    try:
+        await session_manager.evict_session(
+            session_id=body.session_id,
+            clear_history=body.clear_history,
+        )
+        activity_pusher.unregister_activity_token(body.session_id)
+    except SessionNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session {body.session_id!r} is not active or does not exist.",
         )
 
 
