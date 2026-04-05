@@ -12,6 +12,7 @@ from app.models.session import ActiveSession, StepCallback
 from app.config import keys
 from app.models.task import TaskStatus, TaskStatusResponse
 from app.repo.session_repo import SessionRepo, inMemoryRepo
+from app.ssl_config import configure_ca_bundle
 
 AgentType = Agent[object, BaseModel]
 
@@ -32,6 +33,7 @@ class BrowserSessionManager:
     ) -> str:
         """Start a new session or reuse an existing one when session_id is provided."""
         os.environ.setdefault("BROWSER_USE_API_KEY", keys.BROWSER_USE_KEY)
+        configure_ca_bundle()
 
         session_key = session_id or str(uuid4())
         active_session = self._sessions.get(session_key)

@@ -4,3 +4,4 @@ supabase
 pydantic
 pydantic-settings
 browser-use
+certifi

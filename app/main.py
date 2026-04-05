@@ -6,6 +6,7 @@ from supabase import create_async_client
 
 from app.db.client import init_supabase_client
 from app.config import keys
+from app.ssl_config import configure_ca_bundle
 
 import logging
 
@@ -23,6 +24,7 @@ logging.getLogger("hpack").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_ca_bundle()
     yield
     # Any Cleanup after app shutdown
 
