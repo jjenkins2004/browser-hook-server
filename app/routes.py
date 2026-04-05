@@ -7,11 +7,13 @@ from app.models.api import (
     InteractRequest,
     RegisterDeviceTokenRequest,
     StartTaskRequest,
+    TokenRegisterRequest,
 )
 from app.models.session_event import SessionEventLog
+from app.apns_service import activity_pusher
 from app.repo import inMemoryRepo
 from app.sessions_manager import SessionNotFoundError, FollowUpNotSupportedError
-from app.utils import start_session_and_create_stream
+from app.utils import orchestrate_streaming_task
 
 router = APIRouter()
 _device_tokens: set[str] = set()
@@ -24,6 +26,14 @@ _device_tokens: set[str] = set()
 @router.post("/device_token", status_code=204)
 async def register_device_token(body: RegisterDeviceTokenRequest) -> None:
     _device_tokens.add(body.device_token)
+
+
+@router.post("/live-activity/register")
+async def register_live_activity(req: TokenRegisterRequest) -> None:
+    activity_pusher.register_activity_token(
+        session_id=req.session_id,
+        push_token=req.push_token,
+    )
 
 
 @router.get("/task_history", response_model=list[SessionEventLog])
@@ -51,7 +61,7 @@ async def task_history_by_session(session_id: str) -> SessionEventLog:
     ),
 )
 async def start_task(body: StartTaskRequest) -> StreamingResponse:
-    return await start_session_and_create_stream(task_prompt=body.task)
+    return await orchestrate_streaming_task(task_prompt=body.task)
 
 
 @router.post(
@@ -66,7 +76,7 @@ async def start_task(body: StartTaskRequest) -> StreamingResponse:
 )
 async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
     try:
-        return await start_session_and_create_stream(
+        return await orchestrate_streaming_task(
             task_prompt=body.task, session_id=body.session_id
         )
     except SessionNotFoundError:

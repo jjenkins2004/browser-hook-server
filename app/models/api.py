@@ -25,3 +25,8 @@ class BeginTask(BaseModel):
 class InteractRequest(BaseModel):
     session_id: str
     message: str
+
+
+class TokenRegisterRequest(BaseModel):
+    session_id: str
+    push_token: str

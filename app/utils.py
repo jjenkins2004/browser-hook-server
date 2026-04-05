@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 
 from fastapi.responses import StreamingResponse
 
+from app.apns_service import activity_pusher
 from app.browser_hook.models import DoneState, TaskStep
 from app.models.api import BeginTask
 from app.sessions_manager import session_manager
@@ -9,12 +10,12 @@ from app.sessions_manager import session_manager
 SessionStreamState = TaskStep | DoneState
 
 
-async def start_session_and_create_stream(
+async def orchestrate_streaming_task(
     task_prompt: str,
     session_id: str | None = None,
     max_steps: int = 50,
 ) -> StreamingResponse:
-    """Start a session and create an NDJSON stream for its updates."""
+    """Orchestrate task execution and stream session updates as NDJSON."""
     session_id_value = await session_manager.start_session(
         task_prompt=task_prompt,
         max_steps=max_steps,
@@ -32,9 +33,22 @@ async def start_session_and_create_stream(
     async def _ndjson_generator() -> AsyncIterator[str]:
         yield BeginTask(session_id=session_id_value).model_dump_json() + "\n"
         async for update in _step_iterator():
+            # Push live activity updates opportunistically without blocking stream delivery.
+            try:
+                await activity_pusher.publish_session_update(
+                    session_id=session_id_value,
+                    state=update,
+                )
+            except Exception:
+                # APNS failures should not break the task event stream.
+                pass
             yield update.model_dump_json() + "\n"
 
     return StreamingResponse(
         _ndjson_generator(),
         media_type="application/x-ndjson",
     )
+
+
+# Backwards-compatible alias for callers still importing the old name.
+start_session_and_create_stream = orchestrate_streaming_task
