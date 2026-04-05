@@ -24,6 +24,7 @@ class LiveActivityPusher:
             key_id="N96AD57HA8",
             team_id="3S6NT5MUQZ",
             topic="tech.themobilebrowser.wingman.push-type.liveactivity",  # Must append .push-type.liveactivity
+            use_sandbox=True,  # Use the APNS sandbox environment for development
         )
         self._tokens_by_session: dict[str, str] = {}
         self._in_flight: set[asyncio.Task[None]] = set()
