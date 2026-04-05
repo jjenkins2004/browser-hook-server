@@ -1,6 +1,6 @@
 from app.browser_hook.models import TaskStep, ToolResult, ToolStatus
 from app.models.session_event import AgentStepEvent, SessionEventLog
-from app.models.task import TaskStatus, TaskStatusResponse
+from app.models.task import TaskStatus
 
 
 def _tool(
@@ -18,7 +18,7 @@ def _tool(
 
 
 def build_mock_session_store() -> (
-    tuple[dict[str, TaskStatusResponse], dict[str, SessionEventLog]]
+    tuple[dict[str, TaskStatus], dict[str, SessionEventLog]]
 ):
     short_steps = [
         TaskStep(
@@ -245,20 +245,15 @@ def build_mock_session_store() -> (
         ),
     }
 
-    tasks_by_session: dict[str, TaskStatusResponse] = {}
+    statuses_by_session: dict[str, TaskStatus] = {}
     event_logs_by_session: dict[str, SessionEventLog] = {}
 
     for session_id, (status, result, steps) in seeded.items():
-        tasks_by_session[session_id] = TaskStatusResponse(
-            session_id=session_id,
-            status=status,
-            steps=steps,
-            result=result,
-        )
+        statuses_by_session[session_id] = status
         event_logs_by_session[session_id] = SessionEventLog(
             session_id=session_id,
             status=status,
             events=[AgentStepEvent(step=step) for step in steps],
         )
 
-    return tasks_by_session, event_logs_by_session
+    return statuses_by_session, event_logs_by_session

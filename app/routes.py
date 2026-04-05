@@ -8,6 +8,7 @@ from app.models.api import (
     FollowUpTaskRequest,
     InteractRequest,
     RegisterDeviceTokenRequest,
+    StopTaskRequest,
     StartTaskRequest,
     TestLiveActivityPushRequest,
     TokenRegisterRequest,
@@ -16,7 +17,12 @@ from app.browser_hook.models import DoneState, TaskStep
 from app.models.session_event import SessionEventLog
 from app.apns_service import activity_pusher
 from app.repo import inMemoryRepo
-from app.sessions_manager import SessionNotFoundError, FollowUpNotSupportedError
+from app.sessions_manager import (
+    FollowUpNotSupportedError,
+    SessionNotFoundError,
+    SessionNotRunningError,
+    session_manager,
+)
 from app.utils import orchestrate_streaming_task
 
 router = APIRouter()
@@ -95,6 +101,27 @@ async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
         )
 
 
+@router.post(
+    "/task/stop",
+    status_code=204,
+    summary="Stop a running task session",
+    description="Cancels an in-flight task run for the provided session id.",
+)
+async def stop_task(body: StopTaskRequest) -> None:
+    try:
+        await session_manager.stop_session(body.session_id)
+    except SessionNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session {body.session_id!r} is not active or does not exist.",
+        )
+    except SessionNotRunningError:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Session {body.session_id!r} is not currently running.",
+        )
+
+
 @router.post("/task/interact", status_code=204)
 async def interact_with_task(body: InteractRequest) -> None:
     pass
@@ -132,3 +159,17 @@ async def debug_test_live_activity_push(body: TestLiveActivityPushRequest) -> No
 
     mock_done = DoneState(result="Test task complete", status=ToolStatus.SUCCESS)
     await activity_pusher.publish_session_update(mock_session_id, mock_done)
+
+
+@router.post(
+    "/debug/reset-state",
+    status_code=204,
+    summary="Reset in-memory server state",
+    description=(
+        "Clears live-activity state and session manager in-memory state. "
+        "For development/debugging only."
+    ),
+)
+async def debug_reset_state() -> None:
+    activity_pusher.reset_state()
+    await session_manager.reset_state()

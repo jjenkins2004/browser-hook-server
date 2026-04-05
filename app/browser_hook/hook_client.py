@@ -84,3 +84,7 @@ class BrowserHook:
     def resume(self) -> None:
         """Unfreeze the agent."""
         self.agent.resume()
+    
+    def stop(self) -> None:
+        """Stop the agent immediately."""
+        self.agent.stop()

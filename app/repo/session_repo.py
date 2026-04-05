@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from app.browser_hook.models import TaskStep
 from app.models.session_event import AgentStepEvent, SessionEvent, SessionEventLog
-from app.models.task import TaskStatus, TaskStatusResponse
+from app.models.task import TaskStatus
 from app.repo.mock_session_data import build_mock_session_store
 
 
