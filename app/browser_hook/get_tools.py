@@ -52,11 +52,11 @@ def extract_ui_tools(
 
             # Cascade 3: Extracted Content (Cleaned up)
             elif extracted_val:
-                description = str(extracted_val).split("\n")[0].strip()
+                description = str(extracted_val).strip()
 
             # Cascade 4: Long Term Memory
             elif memory_val:
-                description = str(memory_val).split("\n")[0].strip()
+                description = str(memory_val).strip()
 
         ui_tools.append(
             ToolResult(
