@@ -35,7 +35,7 @@ class SessionRepo(ABC):
 class InMemorySessionRepo(SessionRepo):
     def __init__(self) -> None:
         self._event_logs_by_session: dict[str, SessionEventLog] = {}
-        self._load_mock_data()
+        # self._load_mock_data()
 
     def _load_mock_data(self) -> None:
         _, event_logs_by_session = build_mock_session_store()
