@@ -10,10 +10,4 @@ class TaskStatus(str, Enum):
     RUNNING = "Running"
     COMPLETED = "Completed"
     FAILED = "Failed"
-
-
-class TaskStatusResponse(BaseModel):
-    session_id: str
-    status: TaskStatus
-    steps: list[TaskStep]
-    result: Any = None
+    CANCELLED = "Cancelled"

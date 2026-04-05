@@ -14,6 +14,10 @@ class FollowUpTaskRequest(BaseModel):
     task: str
 
 
+class StopTaskRequest(BaseModel):
+    session_id: str
+
+
 class StartTaskResponse(BaseModel):
     session_id: str
 

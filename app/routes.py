@@ -8,6 +8,7 @@ from app.models.api import (
     FollowUpTaskRequest,
     InteractRequest,
     RegisterDeviceTokenRequest,
+    StopTaskRequest,
     StartTaskRequest,
     TestLiveActivityPushRequest,
     TokenRegisterRequest,
@@ -16,7 +17,12 @@ from app.browser_hook.models import DoneState, TaskStep
 from app.models.session_event import SessionEventLog
 from app.apns_service import activity_pusher
 from app.repo import inMemoryRepo
-from app.sessions_manager import SessionNotFoundError, FollowUpNotSupportedError
+from app.sessions_manager import (
+    FollowUpNotSupportedError,
+    SessionNotFoundError,
+    SessionNotRunningError,
+    session_manager,
+)
 from app.utils import orchestrate_streaming_task
 
 router = APIRouter()
@@ -92,6 +98,27 @@ async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
         raise HTTPException(
             status_code=409,
             detail="Live follow-up is not supported by the running agent.",
+        )
+
+
+@router.post(
+    "/task/stop",
+    status_code=204,
+    summary="Stop a running task session",
+    description="Cancels an in-flight task run for the provided session id.",
+)
+async def stop_task(body: StopTaskRequest) -> None:
+    try:
+        await session_manager.stop_session(body.session_id)
+    except SessionNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session {body.session_id!r} is not active or does not exist.",
+        )
+    except SessionNotRunningError:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Session {body.session_id!r} is not currently running.",
         )
 
 

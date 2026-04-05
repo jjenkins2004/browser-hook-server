@@ -30,7 +30,13 @@ class AgentDoneEvent(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-SessionEvent = UserEvent | AgentStepEvent | AgentDoneEvent
+class AgentCancelledEvent(BaseModel):
+    event_type: Literal["agent_cancelled"] = "agent_cancelled"
+    reason: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+SessionEvent = UserEvent | AgentStepEvent | AgentDoneEvent | AgentCancelledEvent
 
 
 class SessionEventLog(BaseModel):

@@ -9,7 +9,12 @@ from browser_use import Agent, Browser, ChatBrowserUse
 from app.browser_hook.hook_client import BrowserHook
 from app.browser_hook.models import DoneState, TaskStep
 from app.models.session import ActiveSession
-from app.models.session_event import AgentDoneEvent, AgentStepEvent, UserEvent
+from app.models.session_event import (
+    AgentCancelledEvent,
+    AgentDoneEvent,
+    AgentStepEvent,
+    UserEvent,
+)
 from app.config import keys
 from app.models.task import TaskStatus
 from app.repo.session_repo import SessionRepo, inMemoryRepo
@@ -28,6 +33,10 @@ class SessionNotFoundError(FollowUpSessionError):
 
 class FollowUpNotSupportedError(FollowUpSessionError):
     """Raised when a live agent does not support add_new_task."""
+
+
+class SessionNotRunningError(FollowUpSessionError):
+    """Raised when attempting to stop a session that is not currently running."""
 
 
 class BrowserSessionManager:
@@ -176,6 +185,43 @@ class BrowserSessionManager:
             status=TaskStatus.FAILED,
         )
 
+    async def _set_task_cancelled(self, session_key: str) -> None:
+        await self._repo.set_session_state(
+            session_id=session_key,
+            status=TaskStatus.CANCELLED,
+        )
+
+    async def _persist_cancelled_event(
+        self,
+        session_id: str,
+        reason: str = "user_requested_stop",
+    ) -> None:
+        await self._repo.persist_event(
+            session_id=session_id,
+            event=AgentCancelledEvent(reason=reason),
+        )
+
+    async def stop_session(self, session_id: str) -> None:
+        active_session = self._sessions.get(session_id)
+        if active_session is None:
+            raise SessionNotFoundError(
+                f"Session {session_id!r} is not active in memory. "
+                "It may have expired or never existed."
+            )
+
+        runner_task = active_session.runner_task
+        if runner_task is None or runner_task.done():
+            raise SessionNotRunningError(
+                f"Session {session_id!r} is not currently running."
+            )
+
+        # Request stop and cancel the running task.
+        active_session.hook.stop()
+        runner_task.cancel()
+
+        await self._persist_cancelled_event(session_id)
+        await self._set_task_cancelled(session_id)
+
     async def _run_session(
         self,
         session_key: str,
@@ -189,6 +235,10 @@ class BrowserSessionManager:
             history = await active_session.hook.run(max_steps=max_steps)
             await events_task
             await self._set_task_completed(session_key)
+        except asyncio.CancelledError:
+            await events_task
+            await self._set_task_cancelled(session_key)
+            raise
         except Exception as exc:
             await events_task
             await self._set_task_failed(session_key)

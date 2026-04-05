@@ -9,13 +9,14 @@ from app.models.api import (
 from app.models.db import Tables
 from app.models.session import ActiveSession
 from app.models.session_event import (
+    AgentCancelledEvent,
     AgentDoneEvent,
     AgentStepEvent,
     SessionEvent,
     UserEvent,
     UserPromptEvent,
 )
-from app.models.task import TaskStatus, TaskStatusResponse
+from app.models.task import TaskStatus
 
 __all__ = [
     "FollowUpTaskRequest",
@@ -30,7 +31,7 @@ __all__ = [
     "UserPromptEvent",
     "AgentStepEvent",
     "AgentDoneEvent",
+    "AgentCancelledEvent",
     "SessionEvent",
     "TaskStatus",
-    "TaskStatusResponse",
 ]
