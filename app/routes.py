@@ -9,7 +9,7 @@ from app.models.api import (
 )
 from app.models.task import TaskStatusResponse
 from app.repo import inMemoryRepo
-from app.utils import build_session_ndjson_stream, start_session_and_yield_steps
+from app.utils import start_session_and_create_stream
 
 router = APIRouter()
 _device_tokens: set[str] = set()
@@ -38,13 +38,12 @@ async def task_history() -> list[TaskStatusResponse]:
     status_code=202,
     summary="Start task stream",
     description=(
-        "Returns an NDJSON stream. The first line is a BeginTask object "
-        "with task_id, followed by TaskStep objects for each emitted step."
+        "Returns an NDJSON stream. The first line contains the task id, "
+        "followed by step updates and a final completion update."
     ),
 )
 async def start_task(body: StartTaskRequest) -> StreamingResponse:
-    task_id, iterator = await start_session_and_yield_steps(task_prompt=body.task)
-    return build_session_ndjson_stream(task_id=task_id, step_iterator=iterator)
+    return await start_session_and_create_stream(task_prompt=body.task)
 
 
 @router.post(
@@ -52,16 +51,15 @@ async def start_task(body: StartTaskRequest) -> StreamingResponse:
     status_code=202,
     summary="Start follow-up task stream",
     description=(
-        "Returns an NDJSON stream for an existing session. The first line is "
-        "a BeginTask object with task_id, followed by TaskStep objects for "
-        "each emitted step."
+        "Returns an NDJSON stream for an existing session. The first line "
+        "contains the task id, followed by step updates and a final "
+        "completion update."
     ),
 )
 async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
-    task_id, iterator = await start_session_and_yield_steps(
+    return await start_session_and_create_stream(
         task_prompt=body.task, session_id=body.session_id
     )
-    return build_session_ndjson_stream(task_id=task_id, step_iterator=iterator)
 
 
 @router.post("/task/interact", status_code=204)

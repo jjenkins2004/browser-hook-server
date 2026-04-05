@@ -7,7 +7,7 @@ from app.models.api import (
     StartTaskResponse,
 )
 from app.models.db import Tables
-from app.models.session import ActiveSession, StepCallback
+from app.models.session import ActiveSession
 from app.models.task import TaskStatus, TaskStatusResponse
 
 __all__ = [
@@ -19,7 +19,6 @@ __all__ = [
     "StartTaskResponse",
     "Tables",
     "ActiveSession",
-    "StepCallback",
     "TaskStatus",
     "TaskStatusResponse",
 ]

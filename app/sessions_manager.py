@@ -8,7 +8,7 @@ from browser_use import Agent, Browser, ChatBrowserUse
 
 from app.browser_hook.hook_client import BrowserHook
 from app.browser_hook.models import TaskStep
-from app.models.session import ActiveSession, StepCallback
+from app.models.session import ActiveSession
 from app.config import keys
 from app.models.task import TaskStatus, TaskStatusResponse
 from app.repo.session_repo import SessionRepo, inMemoryRepo
@@ -29,7 +29,6 @@ class BrowserSessionManager:
         task_prompt: str,
         max_steps: int = 50,
         session_id: str | None = None,
-        on_step_callback: StepCallback | None = None,
     ) -> str:
         """Start a new session or reuse an existing one when session_id is provided."""
         os.environ.setdefault("BROWSER_USE_API_KEY", keys.BROWSER_USE_KEY)
@@ -42,7 +41,6 @@ class BrowserSessionManager:
             active_session = self._create_new_session(
                 session_key=session_key,
                 task_prompt=task_prompt,
-                step_callback=on_step_callback,
             )
             self._sessions[session_key] = active_session
             await self._set_task_running(session_key)
@@ -50,8 +48,6 @@ class BrowserSessionManager:
             self._append_follow_up_task(
                 active_session=active_session, task_prompt=task_prompt
             )
-            if on_step_callback is not None:
-                active_session.step_callback = on_step_callback
             await self._set_task_running(session_key)
 
         # If this session is already running, do not start a second runner.
@@ -75,17 +71,13 @@ class BrowserSessionManager:
         self,
         session_key: str,
         task_prompt: str,
-        step_callback: StepCallback | None,
     ) -> ActiveSession:
         llm = ChatBrowserUse(api_key=keys.BROWSER_USE_KEY)
         browser = Browser(use_cloud=True)
         agent: AgentType = Agent(task=task_prompt, llm=llm, browser=browser)
 
-        async def _on_step_callback(_hook: BrowserHook, step: TaskStep) -> None:
-            await self.handle_step(session_key, step)
-
-        hook = BrowserHook(agent=agent, on_step_callback=_on_step_callback)
-        return ActiveSession(hook=hook, step_callback=step_callback)
+        hook = BrowserHook(agent=agent)
+        return ActiveSession(hook=hook)
 
     def _append_follow_up_task(
         self, active_session: ActiveSession, task_prompt: str
@@ -136,25 +128,25 @@ class BrowserSessionManager:
         active_session: ActiveSession,
         max_steps: int,
     ) -> None:
+        events_task = asyncio.create_task(
+            self._persist_session_events(session_key, active_session.hook)
+        )
         try:
             history = await active_session.hook.run(max_steps=max_steps)
+            await events_task
             await self._set_task_completed(session_key, str(history.final_result()))
         except Exception as exc:
+            await events_task
             await self._set_task_failed(session_key, str(exc))
 
-    async def handle_step(self, session_id: str, step: TaskStep) -> None:
-        """Handle a step callback."""
-
-        # Persist step to repository for that session
-        await self._repo.persist_step(session_id=session_id, step=step)
-
-        active_session = self._sessions.get(session_id)
-        if active_session is None or active_session.step_callback is None:
-            return
-
-        callback_result = active_session.step_callback(step)
-        if asyncio.iscoroutine(callback_result):
-            await callback_result
+    async def _persist_session_events(
+        self,
+        session_id: str,
+        hook: BrowserHook,
+    ) -> None:
+        async for update in hook.iter_events():
+            if isinstance(update, TaskStep):
+                await self._repo.persist_step(session_id=session_id, step=update)
 
     def get_session(self, session_id: str) -> BrowserHook | None:
         active_session = self._sessions.get(session_id)

@@ -20,3 +20,8 @@ class TaskStep(BaseModel):
     step: int
     memory: str | None = None
     tools: list[ToolResult]
+
+
+class DoneState(BaseModel):
+    result: str | None = None
+    status: ToolStatus

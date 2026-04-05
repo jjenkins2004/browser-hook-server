@@ -22,22 +22,27 @@ async def main() -> None:
         browser=cloud_browser,
     )
 
-    async def on_step(hook: BrowserHook, step: TaskStep) -> None:
-        print(f"\n=== Step {step.step} received ===")
-        print(f"  memory: {step.memory}")
-        print(f"  tools:  {[t.tool for t in step.tools]}")
+    hook = BrowserHook(agent=agent)
 
-        # Pause after every step so we can inspect before continuing.
-        hook.pause()
+    async def observe_events() -> None:
+        async for event in hook.iter_events():
+            if isinstance(event, TaskStep):
+                print(f"\n=== Step {event.step} received ===")
+                print(f"  memory: {event.memory}")
+                print(f"  tools:  {[t.tool for t in event.tools]}")
 
-        print(f"  [paused] — resuming in 2 seconds...")
-        await asyncio.sleep(2)
+                # Pause after every step so we can inspect before continuing.
+                hook.pause()
 
-        hook.resume()
-        print(f"  [resumed]")
+                print("  [paused] - resuming in 2 seconds...")
+                await asyncio.sleep(2)
 
-    hook = BrowserHook(agent=agent, on_step_callback=on_step)
+                hook.resume()
+                print("  [resumed]")
+
+    observer_task = asyncio.create_task(observe_events())
     history = await hook.run(max_steps=5)
+    await observer_task
 
     print(f"\n=== Run complete ===")
     print(f"final_result: {history.final_result()}")
