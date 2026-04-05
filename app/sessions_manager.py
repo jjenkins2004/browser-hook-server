@@ -18,6 +18,18 @@ from app.ssl_config import configure_ca_bundle
 AgentType = Agent[object, BaseModel]
 
 
+class FollowUpSessionError(Exception):
+    """Base error for follow-up session problems."""
+
+
+class SessionNotFoundError(FollowUpSessionError):
+    """Raised when a follow-up references a session_id not active in memory."""
+
+
+class FollowUpNotSupportedError(FollowUpSessionError):
+    """Raised when a live agent does not support add_new_task."""
+
+
 class BrowserSessionManager:
     """In-memory manager for all BrowserHook sessions."""
 
@@ -35,17 +47,24 @@ class BrowserSessionManager:
         os.environ.setdefault("BROWSER_USE_API_KEY", keys.BROWSER_USE_KEY)
         configure_ca_bundle()
 
-        session_key = session_id or str(uuid4())
-        active_session = self._sessions.get(session_key)
-
-        if active_session is None:
+        if session_id is None:
+            # Brand-new task
+            session_key = str(uuid4())
             active_session = self._create_new_session(
                 session_key=session_key,
                 task_prompt=task_prompt,
             )
             self._sessions[session_key] = active_session
         else:
-            self._append_follow_up_task(
+            # Follow-up: session_id must reference an active in-memory session
+            session_key = session_id
+            active_session = self._sessions.get(session_key)
+            if active_session is None:
+                raise SessionNotFoundError(
+                    f"Session {session_key!r} is not active in memory. "
+                    "It may have expired or never existed."
+                )
+            self._prepare_follow_up(
                 active_session=active_session, task_prompt=task_prompt
             )
 
@@ -78,19 +97,58 @@ class BrowserSessionManager:
         task_prompt: str,
     ) -> ActiveSession:
         llm = ChatBrowserUse(api_key=keys.BROWSER_USE_KEY)
-        browser = Browser(use_cloud=True)
+        browser = Browser(use_cloud=True, keep_alive=True)
         agent: AgentType = Agent(task=task_prompt, llm=llm, browser=browser)
 
         hook = BrowserHook(agent=agent)
         return ActiveSession(hook=hook)
 
-    def _append_follow_up_task(
+    def _prepare_follow_up(
+        self, active_session: ActiveSession, task_prompt: str
+    ) -> None:
+        """Route to live or completed follow-up path."""
+        runner = active_session.runner_task
+        if runner is not None and not runner.done():
+            # Still running – try live follow-up
+            self._append_live_follow_up(active_session, task_prompt)
+        else:
+            # Completed – rebuild agent on existing browser session
+            self._prepare_completed_session_for_follow_up(active_session, task_prompt)
+
+    def _append_live_follow_up(
         self, active_session: ActiveSession, task_prompt: str
     ) -> None:
         agent = active_session.hook.agent
         follow_up_task = self.format_follow_up_prompt(task_prompt)
 
+        if not hasattr(agent, "add_new_task"):
+            raise FollowUpNotSupportedError(
+                "The running agent does not support live follow-up "
+                "(no add_new_task method)."
+            )
         agent.add_new_task(follow_up_task)
+
+    def _prepare_completed_session_for_follow_up(
+        self, active_session: ActiveSession, task_prompt: str
+    ) -> None:
+        """Replace the hook's agent with a fresh one bound to the same browser."""
+        new_agent = self._build_follow_up_agent(active_session, task_prompt)
+        new_hook = BrowserHook(agent=new_agent)
+        active_session.hook = new_hook
+
+    def _build_follow_up_agent(
+        self, active_session: ActiveSession, task_prompt: str
+    ) -> AgentType:
+        old_agent = active_session.hook.agent
+        follow_up_task = self.format_follow_up_prompt(task_prompt)
+
+        agent: AgentType = Agent(
+            task=f"FOLLOW-UP TASK: {follow_up_task}",
+            llm=old_agent.llm,
+            browser_session=old_agent.browser_session,
+            directly_open_url=False,
+        )
+        return agent
 
     async def _persist_user_input_event(
         self, session_id: str, task_prompt: str
@@ -165,10 +223,7 @@ class BrowserSessionManager:
 
     @staticmethod
     def format_follow_up_prompt(user_text: str) -> str:
-        return (
-            "Follow-up request for the current session:\n\n"
-            f"{user_text}"
-        )
+        return "Follow-up request for the current session:\n\n" f"{user_text}"
 
 
 session_manager = BrowserSessionManager(repo=inMemoryRepo)

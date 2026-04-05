@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+from fastapi import HTTPException
 
 from app.models.api import (
     FollowUpTaskRequest,
@@ -9,6 +10,7 @@ from app.models.api import (
 )
 from app.models.session_event import SessionEventLog
 from app.repo import inMemoryRepo
+from app.sessions_manager import SessionNotFoundError, FollowUpNotSupportedError
 from app.utils import start_session_and_create_stream
 
 router = APIRouter()
@@ -58,9 +60,20 @@ async def start_task(body: StartTaskRequest) -> StreamingResponse:
     ),
 )
 async def follow_up_task(body: FollowUpTaskRequest) -> StreamingResponse:
-    return await start_session_and_create_stream(
-        task_prompt=body.task, session_id=body.session_id
-    )
+    try:
+        return await start_session_and_create_stream(
+            task_prompt=body.task, session_id=body.session_id
+        )
+    except SessionNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Session {body.session_id!r} is not active or does not exist.",
+        )
+    except FollowUpNotSupportedError:
+        raise HTTPException(
+            status_code=409,
+            detail="Live follow-up is not supported by the running agent.",
+        )
 
 
 @router.post("/task/interact", status_code=204)
