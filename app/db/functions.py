@@ -14,7 +14,7 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class Tables(str, Enum):
-    TABLE = "table"
+    BROWSER_SESSION = "browser_session"
 
     def __str__(self) -> str:
         return self.value

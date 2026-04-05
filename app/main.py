@@ -20,6 +20,7 @@ logging.getLogger("postgrest").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("hpack").setLevel(logging.WARNING)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_supabase_client()
@@ -52,4 +53,6 @@ def health_check():
 
 # ====== Include routes ======
 
+from app.routes import router
 
+app.include_router(router)
