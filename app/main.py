@@ -23,7 +23,6 @@ logging.getLogger("hpack").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_supabase_client()
     yield
     # Any Cleanup after app shutdown
 
