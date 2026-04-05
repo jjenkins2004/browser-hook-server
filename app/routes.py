@@ -28,12 +28,17 @@ async def register_device_token(body: RegisterDeviceTokenRequest) -> None:
 
 @router.get("/task_history", response_model=list[SessionEventLog])
 async def task_history() -> list[SessionEventLog]:
-    return await inMemoryRepo.get_history()
+    logs = await inMemoryRepo.get_history()
+    for log in logs:
+        log.events = sorted(log.events, key=lambda e: e.created_at)
+    return logs
 
 
 @router.get("/task_history/{session_id}", response_model=SessionEventLog)
 async def task_history_by_session(session_id: str) -> SessionEventLog:
-    return await inMemoryRepo.get_event_log(session_id)
+    event_log = await inMemoryRepo.get_event_log(session_id)
+    event_log.events = sorted(event_log.events, key=lambda e: e.created_at)
+    return event_log
 
 
 @router.post(
